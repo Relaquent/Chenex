@@ -5,61 +5,82 @@ import requests
 import time
 import os
 
+# === Flask Uygulaması ===
 app = Flask(__name__, template_folder="templates", static_folder="static")
 CORS(app)
 
-# === CACHE AYARI (RAM tabanlı, Render için uygun) ===
-cache = Cache(app, config={
-    "CACHE_TYPE": "SimpleCache",
-    "CACHE_DEFAULT_TIMEOUT": 120  # 2 dakika cache süresi
-})
+# === Cache Ayarları ===
+# Render Redis kullanıyorsan: REDIS_URL ortam değişkeni ekle
+if os.environ.get("REDIS_URL"):
+    cache = Cache(app, config={
+        "CACHE_TYPE": "RedisCache",
+        "CACHE_REDIS_URL": os.environ.get("REDIS_URL"),
+        "CACHE_DEFAULT_TIMEOUT": 300
+    })
+    print("[INFO] RedisCache aktif 🚀")
+else:
+    cache = Cache(app, config={
+        "CACHE_TYPE": "SimpleCache",
+        "CACHE_DEFAULT_TIMEOUT": 300
+    })
+    print("[INFO] SimpleCache (RAM) aktif ⚙️")
 
-# === API AYARLARI ===
+# === API Ayarları ===
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"
-HEADERS = {"User-Agent": "ChenexCryptoDashboard/1.0"}
+HEADERS = {"User-Agent": "ChenexCryptoDashboard/1.1"}
 
 last_request_time = {}
 
-# === RATE LIMIT YÖNETİMİ ===
+# === RATE LIMIT ===
 def rate_limit(key, seconds=2):
-    """Aynı endpoint'e kısa sürede çok istek atmayı önler."""
     now = time.time()
     if key in last_request_time:
         wait = seconds - (now - last_request_time[key])
         if wait > 0:
-            print(f"[INFO] Rate limit: waiting {wait:.2f}s for {key}")
+            print(f"[INFO] Rate limit aktif ({key}) → {wait:.1f}s bekleniyor")
             time.sleep(wait)
     last_request_time[key] = time.time()
 
-
-# === GÜVENLİ İSTEK FONKSİYONU ===
+# === GÜVENLİ API İSTEĞİ ===
 def safe_get(url, params=None, retries=3):
-    """CoinGecko API'ye güvenli şekilde istek atar."""
     for i in range(retries):
         try:
-            r = requests.get(url, params=params, headers=HEADERS, timeout=15)
+            r = requests.get(url, params=params, headers=HEADERS, timeout=10)
             if r.status_code == 429:
-                print(f"[WARN] Rate limited by CoinGecko, retry {i+1}")
+                print(f"[WARN] CoinGecko rate limit (deneme {i+1})")
                 time.sleep(10 * (i + 1))
                 continue
             if r.ok:
                 return r
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Request failed ({i+1}/{retries}): {e}")
+            print(f"[ERROR] API hatası ({i+1}/{retries}): {e}")
             time.sleep(3)
-    print("[FATAL] Failed to fetch data after retries:", url)
+    print(f"[FATAL] API başarısız: {url}")
     return None
 
+# === ÖN ISITMA (Render cold start hızlandırma) ===
+@app.before_first_request
+def warm_up():
+    try:
+        print("[INIT] Ön ısıtma başlatılıyor...")
+        safe_get(f"{COINGECKO_BASE}/coins/markets", {
+            "vs_currency": "usd",
+            "order": "market_cap_desc",
+            "per_page": 10,
+            "page": 1
+        })
+        print("[INIT] Cache ısındı ✅")
+    except Exception as e:
+        print("[WARN] Warm-up hatası:", e)
 
 # === ROOT (WEB ARAYÜZÜ) ===
 @app.route('/')
 def index():
     return render_template('index.html')
 
-
 # === FİYAT LİSTESİ ===
 @app.route('/api/prices')
-@cache.cached(timeout=120)
+@cache.cached(timeout=300)
 def get_prices():
     rate_limit("prices")
 
@@ -71,15 +92,13 @@ def get_prices():
         "sparkline": False,
         "price_change_percentage": "1h,24h,7d"
     })
-
     if not r or r.status_code != 200:
-        return jsonify({"success": False, "error": "CoinGecko unavailable or rate limited"}), 500
+        return jsonify({"success": False, "error": "CoinGecko unavailable"}), 500
 
     coins = r.json()
-    result = []
-
+    data = []
     for c in coins:
-        result.append({
+        data.append({
             "id": c["id"],
             "symbol": c["symbol"].upper(),
             "name": c["name"],
@@ -91,13 +110,11 @@ def get_prices():
             "market_cap": c["market_cap"],
             "volume": c["total_volume"]
         })
-
-    return jsonify({"success": True, "data": result})
-
+    return jsonify({"success": True, "data": data})
 
 # === COİN DETAYI ===
 @app.route('/api/coin/<coin_id>')
-@cache.cached(timeout=180)
+@cache.cached(timeout=300)
 def get_coin_details(coin_id):
     rate_limit("coin")
 
@@ -114,7 +131,7 @@ def get_coin_details(coin_id):
             "id": d["id"],
             "symbol": d["symbol"].upper(),
             "name": d["name"],
-            "description": d["description"]["en"][:400],
+            "description": d["description"]["en"][:400] if d["description"]["en"] else "",
             "current_price": md["current_price"]["usd"],
             "market_cap": md["market_cap"]["usd"],
             "volume": md["total_volume"]["usd"],
@@ -125,9 +142,9 @@ def get_coin_details(coin_id):
         }
     })
 
-
 # === FİYAT TAHMİNİ ===
 @app.route('/api/predict/<coin_id>')
+@cache.cached(timeout=300)
 def predict_price(coin_id):
     rate_limit("predict")
 
@@ -135,7 +152,6 @@ def predict_price(coin_id):
         "vs_currency": "usd",
         "days": 30
     })
-
     if not r or r.status_code != 200:
         return jsonify({"success": False, "error": "Prediction data unavailable"}), 500
 
@@ -163,10 +179,9 @@ def predict_price(coin_id):
         }
     })
 
-
 # === GRAFİK VERİSİ ===
 @app.route('/api/chart/<coin_id>')
-@cache.cached(timeout=180)
+@cache.cached(timeout=300)
 def chart(coin_id):
     days = request.args.get("days", 7, int)
     rate_limit("chart")
@@ -175,7 +190,6 @@ def chart(coin_id):
         "vs_currency": "usd",
         "days": days
     })
-
     if not r or r.status_code != 200:
         return jsonify({"success": False, "error": "Chart data unavailable"}), 500
 
@@ -188,9 +202,8 @@ def chart(coin_id):
         }
     })
 
-
-# === MAIN (Yerel test için) ===
+# === MAIN (yerel test için) ===
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"\n✅ Chenex server running on http://0.0.0.0:{port}")
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
