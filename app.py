@@ -5,45 +5,63 @@ import requests
 import time
 import os
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates", static_folder="static")
 CORS(app)
 
-# Cache (60 saniye)
-cache = Cache(app, config={"CACHE_TYPE": "SimpleCache", "CACHE_DEFAULT_TIMEOUT": 60})
+# === CACHE AYARI (RAM tabanlı, Render için uygun) ===
+cache = Cache(app, config={
+    "CACHE_TYPE": "SimpleCache",
+    "CACHE_DEFAULT_TIMEOUT": 120  # 2 dakika cache süresi
+})
 
+# === API AYARLARI ===
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"
 HEADERS = {"User-Agent": "ChenexCryptoDashboard/1.0"}
 
 last_request_time = {}
 
-def rate_limit(key, seconds=1):
+# === RATE LIMIT YÖNETİMİ ===
+def rate_limit(key, seconds=2):
+    """Aynı endpoint'e kısa sürede çok istek atmayı önler."""
     now = time.time()
     if key in last_request_time:
         wait = seconds - (now - last_request_time[key])
         if wait > 0:
+            print(f"[INFO] Rate limit: waiting {wait:.2f}s for {key}")
             time.sleep(wait)
     last_request_time[key] = time.time()
 
+
+# === GÜVENLİ İSTEK FONKSİYONU ===
 def safe_get(url, params=None, retries=3):
+    """CoinGecko API'ye güvenli şekilde istek atar."""
     for i in range(retries):
         try:
-            r = requests.get(url, params=params, headers=HEADERS, timeout=10)
+            r = requests.get(url, params=params, headers=HEADERS, timeout=15)
             if r.status_code == 429:
-                time.sleep(5 * (i + 1))
+                print(f"[WARN] Rate limited by CoinGecko, retry {i+1}")
+                time.sleep(10 * (i + 1))
                 continue
-            return r
-        except requests.exceptions.RequestException:
-            time.sleep(2)
+            if r.ok:
+                return r
+        except requests.exceptions.RequestException as e:
+            print(f"[ERROR] Request failed ({i+1}/{retries}): {e}")
+            time.sleep(3)
+    print("[FATAL] Failed to fetch data after retries:", url)
     return None
 
+
+# === ROOT (WEB ARAYÜZÜ) ===
 @app.route('/')
 def index():
     return render_template('index.html')
 
+
+# === FİYAT LİSTESİ ===
 @app.route('/api/prices')
-@cache.cached(timeout=60)
+@cache.cached(timeout=120)
 def get_prices():
-    rate_limit("prices", 2)
+    rate_limit("prices")
 
     r = safe_get(f"{COINGECKO_BASE}/coins/markets", {
         "vs_currency": "usd",
@@ -77,10 +95,11 @@ def get_prices():
     return jsonify({"success": True, "data": result})
 
 
+# === COİN DETAYI ===
 @app.route('/api/coin/<coin_id>')
-@cache.cached(timeout=60)
+@cache.cached(timeout=180)
 def get_coin_details(coin_id):
-    rate_limit("coin", 2)
+    rate_limit("coin")
 
     r = safe_get(f"{COINGECKO_BASE}/coins/{coin_id}")
     if not r or r.status_code != 200:
@@ -107,9 +126,10 @@ def get_coin_details(coin_id):
     })
 
 
+# === FİYAT TAHMİNİ ===
 @app.route('/api/predict/<coin_id>')
 def predict_price(coin_id):
-    rate_limit("predict", 2)
+    rate_limit("predict")
 
     r = safe_get(f"{COINGECKO_BASE}/coins/{coin_id}/market_chart", {
         "vs_currency": "usd",
@@ -120,8 +140,10 @@ def predict_price(coin_id):
         return jsonify({"success": False, "error": "Prediction data unavailable"}), 500
 
     prices = [x[1] for x in r.json()["prices"]]
-    current = prices[-1]
+    if not prices:
+        return jsonify({"success": False, "error": "No price data"}), 500
 
+    current = prices[-1]
     sma7 = sum(prices[-7:]) / 7
     sma30 = sum(prices) / len(prices)
     trend = ((sma7 - sma30) / sma30) * 100
@@ -131,9 +153,9 @@ def predict_price(coin_id):
         "data": {
             "current_price": current,
             "predictions": {
-                "1_day": round(current * (1 + trend/100 * 0.3), 2),
-                "7_day": round(current * (1 + trend/100 * 0.7), 2),
-                "30_day": round(current * (1 + trend/100 * 1.2), 2)
+                "1_day": round(current * (1 + trend / 100 * 0.3), 2),
+                "7_day": round(current * (1 + trend / 100 * 0.7), 2),
+                "30_day": round(current * (1 + trend / 100 * 1.2), 2)
             },
             "trend": round(trend, 2),
             "sentiment": "Bullish" if trend > 2 else "Bearish" if trend < -2 else "Neutral",
@@ -142,11 +164,12 @@ def predict_price(coin_id):
     })
 
 
+# === GRAFİK VERİSİ ===
 @app.route('/api/chart/<coin_id>')
-@cache.cached(timeout=120)
+@cache.cached(timeout=180)
 def chart(coin_id):
     days = request.args.get("days", 7, int)
-    rate_limit("chart", 2)
+    rate_limit("chart")
 
     r = safe_get(f"{COINGECKO_BASE}/coins/{coin_id}/market_chart", {
         "vs_currency": "usd",
@@ -157,10 +180,17 @@ def chart(coin_id):
         return jsonify({"success": False, "error": "Chart data unavailable"}), 500
 
     j = r.json()
-    return jsonify({"success": True, "data": {"prices": j["prices"], "volumes": j["total_volumes"]}})
+    return jsonify({
+        "success": True,
+        "data": {
+            "prices": j["prices"],
+            "volumes": j["total_volumes"]
+        }
+    })
 
 
+# === MAIN (Yerel test için) ===
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print("\n✅ Server running on port", port)
-    app.run(host="0.0.0.0", port=port)
+    print(f"\n✅ Chenex server running on http://0.0.0.0:{port}")
+    app.run(host="0.0.0.0", port=port, debug=True)
