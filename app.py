@@ -2,23 +2,46 @@ from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 import requests
 import time
-import os
+import traceback
 
 app = Flask(__name__)
 CORS(app)
 
+# CoinGecko API ve Proxy
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"
+PROXY_BASE = "https://api.allorigins.win/raw?url="
+
+# Basit rate limit
 last_request_time = {}
 
 
 def rate_limit(key, seconds=2):
-    """Prevent hitting CoinGecko too frequently"""
     current_time = time.time()
     if key in last_request_time:
         elapsed = current_time - last_request_time[key]
         if elapsed < seconds:
             time.sleep(seconds - elapsed)
     last_request_time[key] = time.time()
+
+
+def safe_get(url, params=None, timeout=15):
+    """Render üzerinde bağlantı hatası durumunda proxy fallback"""
+    try:
+        response = requests.get(url, params=params, timeout=timeout)
+        response.raise_for_status()
+        return response
+    except requests.exceptions.RequestException as e:
+        print(f"[WARN] Direct request failed, trying proxy → {e}")
+        try:
+            # Proxy fallback
+            proxied_url = PROXY_BASE + requests.utils.quote(url, safe=":/?&=")
+            response = requests.get(proxied_url, params=params, timeout=timeout)
+            response.raise_for_status()
+            return response
+        except Exception as e2:
+            print(f"[ERROR] Proxy request also failed → {e2}")
+            traceback.print_exc()
+            raise
 
 
 @app.route("/")
@@ -32,7 +55,7 @@ def get_prices():
     try:
         rate_limit("prices")
 
-        response = requests.get(
+        response = safe_get(
             f"{COINGECKO_BASE}/coins/markets",
             params={
                 "vs_currency": "usd",
@@ -42,19 +65,13 @@ def get_prices():
                 "sparkline": True,
                 "price_change_percentage": "1h,24h,7d",
             },
-            headers={"User-Agent": "Chenex-Server/1.1"},
-            timeout=15,
         )
 
-        if response.status_code != 200:
-            return jsonify({
-                "success": False,
-                "error": f"CoinGecko API returned {response.status_code}"
-            }), 500
-
         data = response.json()
-        formatted_data = [
-            {
+        formatted_data = []
+
+        for coin in data:
+            formatted_data.append({
                 "id": coin.get("id"),
                 "symbol": coin.get("symbol", "").upper(),
                 "name": coin.get("name", ""),
@@ -66,25 +83,13 @@ def get_prices():
                 "market_cap": coin.get("market_cap", 0),
                 "volume": coin.get("total_volume", 0),
                 "sparkline": coin.get("sparkline_in_7d", {}).get("price", []),
-            }
-            for coin in data
-        ]
+            })
 
         return jsonify({"success": True, "data": formatted_data})
 
-    except requests.exceptions.Timeout:
-        return jsonify({
-            "success": False,
-            "error": "Request timeout — CoinGecko API is slow or unresponsive."
-        }), 500
-
-    except requests.exceptions.ConnectionError:
-        return jsonify({
-            "success": False,
-            "error": "Connection error — check your internet or CoinGecko availability."
-        }), 500
-
     except Exception as e:
+        print("[ERROR] /api/prices:", e)
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -93,13 +98,8 @@ def get_coin_details(coin_id):
     """Get detailed info about a specific cryptocurrency"""
     try:
         rate_limit("coin_details")
-        response = requests.get(f"{COINGECKO_BASE}/coins/{coin_id}", timeout=10)
-        if response.status_code != 200:
-            return jsonify({
-                "success": False,
-                "error": f"CoinGecko returned {response.status_code}"
-            }), 500
 
+        response = safe_get(f"{COINGECKO_BASE}/coins/{coin_id}")
         data = response.json()
         market_data = data.get("market_data", {})
 
@@ -117,31 +117,29 @@ def get_coin_details(coin_id):
                 "low_24h": market_data.get("low_24h", {}).get("usd", 0),
                 "ath": market_data.get("ath", {}).get("usd", 0),
                 "atl": market_data.get("atl", {}).get("usd", 0),
-            },
+            }
         })
+
     except Exception as e:
+        print("[ERROR] /api/coin:", e)
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/api/predict/<coin_id>", methods=["GET"])
 def predict_price(coin_id):
-    """Basic moving average–based trend prediction"""
+    """Simple trend-based prediction"""
     try:
         rate_limit("predict")
-        response = requests.get(
+
+        response = safe_get(
             f"{COINGECKO_BASE}/coins/{coin_id}/market_chart",
             params={"vs_currency": "usd", "days": 30},
-            timeout=15,
         )
-
-        if response.status_code != 200:
-            return jsonify({
-                "success": False,
-                "error": f"CoinGecko returned {response.status_code}"
-            }), 500
 
         data = response.json()
         prices = [p[1] for p in data.get("prices", []) if len(p) > 1]
+
         if len(prices) < 7:
             return jsonify({
                 "success": False,
@@ -156,7 +154,6 @@ def predict_price(coin_id):
         prediction_1d = current_price * (1 + (trend / 100) * 0.3)
         prediction_7d = current_price * (1 + (trend / 100) * 0.7)
         prediction_30d = current_price * (1 + (trend / 100) * 1.2)
-
         sentiment = "Bullish" if trend > 2 else "Bearish" if trend < -2 else "Neutral"
 
         return jsonify({
@@ -175,6 +172,8 @@ def predict_price(coin_id):
         })
 
     except Exception as e:
+        print("[ERROR] /api/predict:", e)
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -184,18 +183,14 @@ def get_chart_data(coin_id):
     days = request.args.get("days", 7, type=int)
     try:
         rate_limit("chart")
-        response = requests.get(
+
+        response = safe_get(
             f"{COINGECKO_BASE}/coins/{coin_id}/market_chart",
             params={"vs_currency": "usd", "days": days},
-            timeout=10,
         )
-        if response.status_code != 200:
-            return jsonify({
-                "success": False,
-                "error": f"CoinGecko returned {response.status_code}"
-            }), 500
 
         data = response.json()
+
         return jsonify({
             "success": True,
             "data": {
@@ -203,10 +198,17 @@ def get_chart_data(coin_id):
                 "volumes": data.get("total_volumes", []),
             },
         })
+
     except Exception as e:
+        print("[ERROR] /api/chart:", e)
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-# ✅ Render: Uygulama Gunicorn tarafından çağrılacak
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    print("\n" + "=" * 50)
+    print("🚀 Chenex v1.1.4 Backend Server (Render-Optimized)")
+    print("=" * 50)
+    print("✓ Running at: http://localhost:5000")
+    print("=" * 50 + "\n")
+    app.run(debug=True, port=5000, host="0.0.0.0")
