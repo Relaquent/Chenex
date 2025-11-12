@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 import requests
 import time
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -30,7 +31,6 @@ def index():
 
 @app.route("/api/prices", methods=["GET"])
 def get_prices():
-    """Get current prices for top cryptocurrencies"""
     try:
         rate_limit("prices")
 
@@ -48,10 +48,7 @@ def get_prices():
         )
 
         if response.status_code != 200:
-            return jsonify({
-                "success": False,
-                "error": f"CoinGecko API returned status {response.status_code}"
-            }), 500
+            return jsonify({"success": False, "error": f"CoinGecko API returned {response.status_code}"}), 500
 
         data = response.json()
         formatted_data = []
@@ -74,31 +71,21 @@ def get_prices():
         return jsonify({"success": True, "data": formatted_data})
 
     except requests.exceptions.Timeout:
-        return jsonify({
-            "success": False,
-            "error": "Request timeout — CoinGecko API is slow or unresponsive."
-        }), 500
+        return jsonify({"success": False, "error": "Request timeout — CoinGecko API is slow or unresponsive."}), 500
     except requests.exceptions.ConnectionError:
-        return jsonify({
-            "success": False,
-            "error": "Connection error — check your internet or CoinGecko availability."
-        }), 500
+        return jsonify({"success": False, "error": "Connection error — check your internet or CoinGecko availability."}), 500
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/api/coin/<coin_id>", methods=["GET"])
 def get_coin_details(coin_id):
-    """Get detailed info about a specific cryptocurrency"""
     try:
         rate_limit("coin_details")
 
         response = requests.get(f"{COINGECKO_BASE}/coins/{coin_id}", timeout=10)
         if response.status_code != 200:
-            return jsonify({
-                "success": False,
-                "error": f"CoinGecko returned {response.status_code}"
-            }), 500
+            return jsonify({"success": False, "error": f"CoinGecko returned {response.status_code}"}), 500
 
         data = response.json()
         market_data = data.get("market_data", {})
@@ -126,7 +113,6 @@ def get_coin_details(coin_id):
 
 @app.route("/api/predict/<coin_id>", methods=["GET"])
 def predict_price(coin_id):
-    """Basic moving average–based trend prediction"""
     try:
         rate_limit("predict")
 
@@ -137,19 +123,13 @@ def predict_price(coin_id):
         )
 
         if response.status_code != 200:
-            return jsonify({
-                "success": False,
-                "error": f"CoinGecko returned {response.status_code}"
-            }), 500
+            return jsonify({"success": False, "error": f"CoinGecko returned {response.status_code}"}), 500
 
         data = response.json()
         prices = [p[1] for p in data.get("prices", []) if len(p) > 1]
 
         if len(prices) < 7:
-            return jsonify({
-                "success": False,
-                "error": "Insufficient data for prediction"
-            }), 400
+            return jsonify({"success": False, "error": "Insufficient data for prediction"}), 400
 
         current_price = prices[-1]
         sma_7 = sum(prices[-7:]) / 7
@@ -182,7 +162,6 @@ def predict_price(coin_id):
 
 @app.route("/api/chart/<coin_id>", methods=["GET"])
 def get_chart_data(coin_id):
-    """Get historical chart data"""
     days = request.args.get("days", 7, type=int)
     try:
         rate_limit("chart")
@@ -193,10 +172,7 @@ def get_chart_data(coin_id):
         )
 
         if response.status_code != 200:
-            return jsonify({
-                "success": False,
-                "error": f"CoinGecko returned {response.status_code}"
-            }), 500
+            return jsonify({"success": False, "error": f"CoinGecko returned {response.status_code}"}), 500
 
         data = response.json()
 
@@ -212,12 +188,8 @@ def get_chart_data(coin_id):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# Render, otomatik olarak gunicorn ile app değişkenini çalıştırır.
+# Yani aşağıdaki app.run kısmı Render'da gereksiz.
 if __name__ == "__main__":
-    print("\n" + "=" * 50)
-    print("🚀 Chenex v1.1.3 Backend Server (Stable Release)")
-    print("=" * 50)
-    print("✓ Server running at: http://localhost:5000")
-    print("✓ Frontend:          http://localhost:5000")
-    print("=" * 50 + "\n")
-
-    app.run(debug=True, port=5000, host="0.0.0.0")
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
