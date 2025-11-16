@@ -3,660 +3,476 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chenex - Cypto Analytics</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>Chenex Pro - Crypto Analytics</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
-            color: #e0e6ed;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%);
+            color: #f1f5f9;
             min-height: 100vh;
         }
-
         .header {
-            background: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(10px);
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(99, 102, 241, 0.2);
             padding: 1.5rem 2rem;
             position: sticky;
             top: 0;
             z-index: 100;
         }
-
         .header-content {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
+        .logo { display: flex; align-items: center; gap: 1rem; }
         .logo-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            border-radius: 10px;
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 700;
-            font-size: 1.2rem;
-        }
-
-        .logo-text h1 {
+            font-weight: 800;
             font-size: 1.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        }
+        .logo-text h1 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-
-        .version {
-            font-size: 0.75rem;
-            color: #64748b;
-            font-weight: 400;
-        }
-
-        .branding {
-            font-size: 0.875rem;
-            color: #64748b;
-            font-weight: 500;
-        }
-
-        .branding span {
-            color: #6366f1;
-            font-weight: 600;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 2rem auto;
-            padding: 0 2rem;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 16px;
+        .version { font-size: 0.7rem; color: #94a3b8; }
+        .status { font-size: 0.9rem; color: #22c55e; font-weight: 600; }
+        .container { max-width: 1600px; margin: 2rem auto; padding: 0 2rem; }
+        .alert {
             padding: 1.5rem;
-            transition: all 0.3s ease;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            border: 1px solid;
         }
-
-        .stat-card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(99, 102, 241, 0.5);
-            box-shadow: 0 10px 40px rgba(99, 102, 241, 0.2);
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
         }
-
-        .stat-label {
-            font-size: 0.875rem;
-            color: #94a3b8;
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
         }
-
-        .stat-value {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: #f1f5f9;
-        }
-
-        .market-table {
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(10px);
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card {
+            background: rgba(15, 23, 42, 0.8);
             border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 16px;
+            border-radius: 20px;
+            padding: 2rem;
+            transition: all 0.3s;
+        }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(99, 102, 241, 0.2); }
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .stat-icon.blue { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
+        .stat-icon.purple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+        .stat-icon.green { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+        .stat-icon.orange { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+        .stat-label { font-size: 0.875rem; color: #94a3b8; margin-bottom: 0.5rem; text-transform: uppercase; }
+        .stat-value { font-size: 1.75rem; font-weight: 800; margin-bottom: 0.5rem; }
+        .stat-change {
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            display: inline-block;
+        }
+        .positive { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+        .negative { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+        .section {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 20px;
             overflow: hidden;
             margin-bottom: 2rem;
         }
-
-        .table-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid rgba(99, 102, 241, 0.2);
-        }
-
-        .table-header h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        thead {
-            background: rgba(99, 102, 241, 0.1);
-        }
-
+        .section-header { padding: 2rem; border-bottom: 1px solid rgba(99, 102, 241, 0.2); }
+        .section-title { font-size: 1.5rem; font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: rgba(99, 102, 241, 0.05); }
         th {
             padding: 1rem 1.5rem;
             text-align: left;
-            font-size: 0.875rem;
-            font-weight: 600;
+            font-size: 0.75rem;
+            font-weight: 700;
             color: #94a3b8;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
         }
-
-        td {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid rgba(99, 102, 241, 0.1);
-        }
-
-        tr:hover {
-            background: rgba(99, 102, 241, 0.05);
-        }
-
-        .coin-info {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .coin-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-        }
-
-        .coin-name {
-            font-weight: 600;
-        }
-
-        .coin-symbol {
-            color: #64748b;
-            font-size: 0.875rem;
-        }
-
-        .price-change {
-            padding: 0.25rem 0.75rem;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 0.875rem;
-        }
-
-        .positive {
-            background: rgba(34, 197, 94, 0.1);
-            color: #22c55e;
-        }
-
-        .negative {
-            background: rgba(239, 68, 68, 0.1);
-            color: #ef4444;
-        }
-
-        .predict-btn {
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            color: white;
-            border: none;
+        td { padding: 1rem 1.5rem; border-bottom: 1px solid rgba(99, 102, 241, 0.05); }
+        tr:hover { background: rgba(99, 102, 241, 0.05); }
+        .coin-info { display: flex; align-items: center; gap: 1rem; }
+        .coin-icon { width: 32px; height: 32px; border-radius: 50%; }
+        .coin-name { font-weight: 700; }
+        .coin-symbol { color: #94a3b8; font-size: 0.875rem; }
+        .btn {
             padding: 0.5rem 1rem;
+            border: none;
             border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.3s;
         }
-
-        .predict-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 5px 20px rgba(99, 102, 241, 0.4);
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
         }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4); }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 1000; }
+        .modal.active { display: flex; align-items: center; justify-content: center; }
         .modal-content {
-            background: rgba(15, 23, 42, 0.95);
+            background: rgba(15, 23, 42, 0.98);
             border: 1px solid rgba(99, 102, 241, 0.3);
-            border-radius: 20px;
-            padding: 2rem;
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
+            border-radius: 24px;
+            max-width: 1200px;
+            width: 95%;
+            max-height: 90vh;
             overflow-y: auto;
         }
-
         .modal-header {
+            padding: 2rem;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.2);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1.5rem;
         }
-
-        .modal-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-
         .close-btn {
-            background: none;
+            background: rgba(239, 68, 68, 0.1);
             border: none;
-            color: #94a3b8;
+            color: #ef4444;
             font-size: 1.5rem;
             cursor: pointer;
-            transition: color 0.3s ease;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
         }
-
-        .close-btn:hover {
-            color: #f1f5f9;
+        .close-btn:hover { background: #ef4444; color: white; }
+        .modal-body { padding: 2rem; }
+        .pred-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .pred-card { background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 1.5rem; }
+        .pred-label { font-size: 0.875rem; color: #94a3b8; margin-bottom: 0.5rem; }
+        .pred-value { font-size: 1.5rem; font-weight: 800; color: #6366f1; }
+        .chart-wrap { background: rgba(0, 0, 0, 0.3); border-radius: 16px; padding: 1.5rem; height: 400px; margin: 2rem 0; }
+        .indicators { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin: 2rem 0; }
+        .indicator { background: rgba(99, 102, 241, 0.05); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 1rem; }
+        .ind-label { font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.5rem; }
+        .ind-value { font-size: 1.25rem; font-weight: 700; }
+        .sentiment {
+            margin-top: 2rem;
+            padding: 2rem;
+            background: rgba(99, 102, 241, 0.05);
+            border-radius: 16px;
+            text-align: center;
         }
-
-        .prediction-grid {
-            display: grid;
-            gap: 1rem;
-            margin-top: 1.5rem;
-        }
-
-        .prediction-card {
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 12px;
-            padding: 1.5rem;
-        }
-
-        .prediction-label {
-            font-size: 0.875rem;
-            color: #94a3b8;
-            margin-bottom: 0.5rem;
-        }
-
-        .prediction-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #6366f1;
-        }
-
         .sentiment-badge {
             display: inline-block;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-weight: 600;
-            margin-top: 1rem;
+            padding: 0.75rem 2rem;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin: 1rem 0;
         }
-
-        .bullish {
-            background: rgba(34, 197, 94, 0.2);
-            color: #22c55e;
-        }
-
-        .bearish {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-        }
-
-        .neutral {
-            background: rgba(148, 163, 184, 0.2);
-            color: #94a3b8;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 2rem;
-            color: #64748b;
-        }
-
+        .strong-bullish { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
+        .bullish { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+        .neutral { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+        .bearish { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .strong-bearish { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .conf-bar { height: 10px; background: rgba(99, 102, 241, 0.1); border-radius: 10px; overflow: hidden; max-width: 400px; margin: 1rem auto; }
+        .conf-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+        .loading { text-align: center; padding: 3rem; }
         .spinner {
-            border: 3px solid rgba(99, 102, 241, 0.3);
-            border-top: 3px solid #6366f1;
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(99, 102, 241, 0.2);
+            border-top-color: #6366f1;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
             animation: spin 1s linear infinite;
             margin: 0 auto 1rem;
         }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .footer {
-            text-align: center;
-            padding: 2rem;
-            color: #64748b;
-            font-size: 0.875rem;
-        }
-
-        @media (max-width: 768px) {
-            .header-content {
-                flex-direction: column;
-                gap: 1rem;
-            }
-
-            th, td {
-                padding: 0.75rem 1rem;
-                font-size: 0.875rem;
-            }
-
-            .hide-mobile {
-                display: none;
-            }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 768px) { .hide-mobile { display: none; } }
     </style>
 </head>
 <body>
-    <header class="header">
+    <div class="header">
         <div class="header-content">
             <div class="logo">
                 <div class="logo-icon">C</div>
                 <div class="logo-text">
-                    <h1>Chenex</h1>
-                    <div class="version">v1.1.3</div>
+                    <h1>Chenex Pro</h1>
+                    <div class="version">Analytics v2.0</div>
                 </div>
             </div>
-            <div class="branding">
-                Powered by <span>Relaquent</span>
-            </div>
+            <div class="status" id="status">● Connecting...</div>
         </div>
-    </header>
+    </div>
 
     <div class="container">
-        <div class="stats-grid" id="statsGrid">
+        <div id="alertBox"></div>
+
+        <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-label">Total Market Cap</div>
-                <div class="stat-value" id="totalMarketCap">Loading...</div>
+                <div class="stat-icon blue">💎</div>
+                <div class="stat-label">Market Cap</div>
+                <div class="stat-value" id="marketCap">--</div>
+                <span class="stat-change positive" id="mcChange">--</span>
             </div>
             <div class="stat-card">
+                <div class="stat-icon purple">📊</div>
                 <div class="stat-label">24h Volume</div>
-                <div class="stat-value" id="totalVolume">Loading...</div>
+                <div class="stat-value" id="volume">--</div>
             </div>
             <div class="stat-card">
+                <div class="stat-icon green">₿</div>
                 <div class="stat-label">BTC Dominance</div>
-                <div class="stat-value" id="btcDominance">Loading...</div>
+                <div class="stat-value" id="btcDom">--</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Active Cryptos</div>
-                <div class="stat-value" id="activeCryptos">20</div>
+                <div class="stat-icon orange">🌐</div>
+                <div class="stat-label">Markets</div>
+                <div class="stat-value" id="markets">--</div>
             </div>
         </div>
 
-        <div class="market-table">
-            <div class="table-header">
-                <h2>Live Market Data</h2>
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Live Market Data</h2>
             </div>
-            <div id="tableContainer">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p>Loading market data...</p>
-                </div>
+            <div id="tableWrap">
+                <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
             </div>
         </div>
     </div>
 
-    <div class="modal" id="predictionModal">
+    <div class="modal" id="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title" id="modalTitle">Price Prediction</h3>
-                <button class="close-btn" onclick="closeModal()">&times;</button>
+                <h3 id="modalTitle">Analysis</h3>
+                <button class="close-btn" onclick="closeModal()">×</button>
             </div>
-            <div id="modalBody">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p>Analyzing market data...</p>
-                </div>
+            <div class="modal-body" id="modalBody">
+                <div class="loading"><div class="spinner"></div></div>
             </div>
         </div>
     </div>
 
-    <footer class="footer">
-        <p>&copy; 2025 Chenex v1.1.3 | Developed by Relaquent | Last Update: 11/12/2025</p>
-    </footer>
-
     <script>
-        // Detect if running locally or on a server
-        const API_BASE = window.location.origin + '/api';
-        let marketData = [];
-        let retryCount = 0;
-        const MAX_RETRIES = 3;
+        const API = window.location.origin + '/api';
+        let chart = null;
 
-        async function fetchMarketData() {
-            try {
-                const response = await fetch(`${API_BASE}/prices`);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    marketData = result.data;
-                    renderTable(marketData);
-                    updateStats(marketData);
-                    retryCount = 0; // Reset retry count on success
-                } else {
-                    throw new Error(result.error || 'Unknown error');
-                }
-            } catch (error) {
-                console.error('Error fetching market data:', error);
-                retryCount++;
-                
-                let errorMessage = '';
-                if (error.message.includes('Failed to fetch')) {
-                    errorMessage = `
-                        <div class="loading">
-                            <p style="color: #ef4444; margin-bottom: 1rem;">⚠️ Cannot connect to backend server</p>
-                            <p style="color: #94a3b8; font-size: 0.875rem;">Please ensure:</p>
-                            <ul style="text-align: left; max-width: 400px; margin: 1rem auto; color: #94a3b8; font-size: 0.875rem;">
-                                <li>The Flask backend is running (python app.py)</li>
-                                <li>The server is accessible at ${API_BASE}</li>
-                                <li>Check the browser console for errors</li>
-                            </ul>
-                            ${retryCount < MAX_RETRIES ? `<p style="color: #64748b; font-size: 0.875rem; margin-top: 1rem;">Retrying in 5 seconds... (${retryCount}/${MAX_RETRIES})</p>` : ''}
-                        </div>
-                    `;
-                } else {
-                    errorMessage = `
-                        <div class="loading">
-                            <p style="color: #ef4444;">Error: ${error.message}</p>
-                            ${retryCount < MAX_RETRIES ? `<p style="color: #64748b; font-size: 0.875rem; margin-top: 1rem;">Retrying in 5 seconds... (${retryCount}/${MAX_RETRIES})</p>` : ''}
-                        </div>
-                    `;
-                }
-                
-                document.getElementById('tableContainer').innerHTML = errorMessage;
-                
-                // Retry logic
-                if (retryCount < MAX_RETRIES) {
-                    setTimeout(fetchMarketData, 5000);
-                }
-            }
-        }
+        const fmt = n => {
+            if (!n && n !== 0) return '$0.00';
+            if (n >= 1e12) return '$' + (n/1e12).toFixed(2) + 'T';
+            if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+            if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+            if (n >= 1e3) return '$' + (n/1e3).toFixed(2) + 'K';
+            return '$' + n.toFixed(2);
+        };
 
-        function formatNumber(num) {
-            if (num >= 1e12) return '$' + (num / 1e12).toFixed(2) + 'T';
-            if (num >= 1e9) return '$' + (num / 1e9).toFixed(2) + 'B';
-            if (num >= 1e6) return '$' + (num / 1e6).toFixed(2) + 'M';
-            if (num >= 1e3) return '$' + (num / 1e3).toFixed(2) + 'K';
-            return '$' + num.toFixed(2);
-        }
+        const pct = n => !n && n !== 0 ? '0.00%' : (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
 
-        function formatPercent(num) {
-            const sign = num >= 0 ? '+' : '';
-            return sign + num.toFixed(2) + '%';
-        }
-
-        function updateStats(data) {
-            const totalMarketCap = data.reduce((sum, coin) => sum + coin.market_cap, 0);
-            const totalVolume = data.reduce((sum, coin) => sum + coin.volume, 0);
-            const btcMarketCap = data.find(c => c.symbol === 'BTC')?.market_cap || 0;
-            const btcDominance = ((btcMarketCap / totalMarketCap) * 100).toFixed(2);
-
-            document.getElementById('totalMarketCap').textContent = formatNumber(totalMarketCap);
-            document.getElementById('totalVolume').textContent = formatNumber(totalVolume);
-            document.getElementById('btcDominance').textContent = btcDominance + '%';
-        }
-
-        function renderTable(data) {
-            const html = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Coin</th>
-                            <th>Price</th>
-                            <th class="hide-mobile">1h</th>
-                            <th>24h</th>
-                            <th class="hide-mobile">7d</th>
-                            <th class="hide-mobile">Market Cap</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${data.map((coin, index) => `
-                            <tr>
-                                <td>${index + 1}</td>
-                                <td>
-                                    <div class="coin-info">
-                                        <img src="${coin.image}" alt="${coin.name}" class="coin-icon">
-                                        <div>
-                                            <div class="coin-name">${coin.name}</div>
-                                            <div class="coin-symbol">${coin.symbol}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>${formatNumber(coin.current_price)}</td>
-                                <td class="hide-mobile">
-                                    <span class="price-change ${coin.price_change_1h >= 0 ? 'positive' : 'negative'}">
-                                        ${formatPercent(coin.price_change_1h)}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="price-change ${coin.price_change_24h >= 0 ? 'positive' : 'negative'}">
-                                        ${formatPercent(coin.price_change_24h)}
-                                    </span>
-                                </td>
-                                <td class="hide-mobile">
-                                    <span class="price-change ${coin.price_change_7d >= 0 ? 'positive' : 'negative'}">
-                                        ${formatPercent(coin.price_change_7d)}
-                                    </span>
-                                </td>
-                                <td class="hide-mobile">${formatNumber(coin.market_cap)}</td>
-                                <td>
-                                    <button class="predict-btn" onclick="showPrediction('${coin.id}', '${coin.name}', '${coin.symbol}')">
-                                        Predict
-                                    </button>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-            document.getElementById('tableContainer').innerHTML = html;
-        }
-
-        async function showPrediction(coinId, coinName, coinSymbol) {
-            const modal = document.getElementById('predictionModal');
-            modal.classList.add('active');
-            
-            document.getElementById('modalTitle').textContent = `${coinName} (${coinSymbol}) Prediction`;
-            document.getElementById('modalBody').innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p>Analyzing market data...</p>
+        const showAlert = (msg, type = 'error') => {
+            document.getElementById('alertBox').innerHTML = `
+                <div class="alert alert-${type}">
+                    <strong>${type === 'error' ? '❌ Error:' : '⚠️ Warning:'}</strong> ${msg}
                 </div>
             `;
+        };
 
+        const clearAlert = () => document.getElementById('alertBox').innerHTML = '';
+
+        async function fetchGlobal() {
             try {
-                const response = await fetch(`${API_BASE}/predict/${coinId}`);
-                const result = await response.json();
-
-                if (result.success) {
-                    const data = result.data;
-                    document.getElementById('modalBody').innerHTML = `
-                        <div class="prediction-card">
-                            <div class="prediction-label">Current Price</div>
-                            <div class="prediction-value">${formatNumber(data.current_price)}</div>
-                        </div>
-                        
-                        <div class="prediction-grid">
-                            <div class="prediction-card">
-                                <div class="prediction-label">1 Day Prediction</div>
-                                <div class="prediction-value">${formatNumber(data.predictions['1_day'])}</div>
-                            </div>
-                            
-                            <div class="prediction-card">
-                                <div class="prediction-label">7 Day Prediction</div>
-                                <div class="prediction-value">${formatNumber(data.predictions['7_day'])}</div>
-                            </div>
-                            
-                            <div class="prediction-card">
-                                <div class="prediction-label">30 Day Prediction</div>
-                                <div class="prediction-value">${formatNumber(data.predictions['30_day'])}</div>
-                            </div>
-                        </div>
-
-                        <div style="margin-top: 1.5rem;">
-                            <div class="prediction-label">Market Sentiment</div>
-                            <span class="sentiment-badge ${data.sentiment.toLowerCase()}">
-                                ${data.sentiment} (${data.confidence}% confidence)
-                            </span>
-                        </div>
-
-                        <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(99, 102, 241, 0.05); border-radius: 8px; font-size: 0.875rem; color: #94a3b8;">
-                            <strong>Disclaimer:</strong> These predictions are based on historical trends and should not be considered financial advice. Cryptocurrency markets are highly volatile.
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                document.getElementById('modalBody').innerHTML = `
-                    <div style="color: #ef4444; text-align: center;">
-                        <p>Error loading prediction. Please try again.</p>
-                    </div>
-                `;
+                const res = await fetch(`${API}/global`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const { success, data, error } = await res.json();
+                if (!success) throw new Error(error || 'Failed to load global stats');
+                
+                document.getElementById('marketCap').textContent = fmt(data.total_market_cap);
+                document.getElementById('volume').textContent = fmt(data.total_volume);
+                document.getElementById('btcDom').textContent = (data.btc_dominance || 0).toFixed(2) + '%';
+                document.getElementById('markets').textContent = (data.markets || 0).toLocaleString();
+                
+                const ch = document.getElementById('mcChange');
+                ch.textContent = pct(data.market_cap_change_24h);
+                ch.className = 'stat-change ' + (data.market_cap_change_24h >= 0 ? 'positive' : 'negative');
+                
+                document.getElementById('status').textContent = '● Live';
+                document.getElementById('status').style.color = '#22c55e';
+                clearAlert();
+            } catch (e) {
+                console.error('Global stats error:', e);
+                document.getElementById('status').textContent = '● Offline';
+                document.getElementById('status').style.color = '#ef4444';
+                showAlert('Cannot connect to server. Make sure Flask is running on http://localhost:5000', 'error');
             }
+        }
+
+        async function fetchMarket() {
+            try {
+                const res = await fetch(`${API}/prices?per_page=50`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const { success, data, error } = await res.json();
+                if (!success) throw new Error(error || 'Failed to load market data');
+                
+                document.getElementById('tableWrap').innerHTML = `
+                    <table>
+                        <thead><tr>
+                            <th>#</th><th>Coin</th><th>Price</th>
+                            <th class="hide-mobile">1h</th><th>24h</th><th class="hide-mobile">7d</th>
+                            <th class="hide-mobile">Cap</th><th>Action</th>
+                        </tr></thead>
+                        <tbody>${data.map(c => `
+                            <tr>
+                                <td>${c.market_cap_rank || '-'}</td>
+                                <td><div class="coin-info">
+                                    <img src="${c.image}" class="coin-icon" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22><circle cx=%2216%22 cy=%2216%22 r=%2214%22 fill=%22%236366f1%22/></svg>'">
+                                    <div><div class="coin-name">${c.name}</div><div class="coin-symbol">${c.symbol}</div></div>
+                                </div></td>
+                                <td style="font-weight:700">${fmt(c.current_price)}</td>
+                                <td class="hide-mobile"><span class="stat-change ${(c.price_change_1h||0)>=0?'positive':'negative'}">${pct(c.price_change_1h||0)}</span></td>
+                                <td><span class="stat-change ${(c.price_change_24h||0)>=0?'positive':'negative'}">${pct(c.price_change_24h||0)}</span></td>
+                                <td class="hide-mobile"><span class="stat-change ${(c.price_change_7d||0)>=0?'positive':'negative'}">${pct(c.price_change_7d||0)}</span></td>
+                                <td class="hide-mobile">${fmt(c.market_cap)}</td>
+                                <td><button class="btn btn-primary" onclick="predict('${c.id}','${c.name}')">Predict</button></td>
+                            </tr>
+                        `).join('')}</tbody>
+                    </table>
+                `;
+            } catch (e) {
+                console.error('Market data error:', e);
+                document.getElementById('tableWrap').innerHTML = '<div class="loading"><p style="color:#ef4444">Failed to load market data</p></div>';
+            }
+        }
+
+        async function predict(id, name) {
+            document.getElementById('modal').classList.add('active');
+            document.getElementById('modalTitle').textContent = name;
+            document.getElementById('modalBody').innerHTML = '<div class="loading"><div class="spinner"></div><p>Analyzing...</p></div>';
+            
+            try {
+                const [p, c] = await Promise.all([
+                    fetch(`${API}/predict/${id}`),
+                    fetch(`${API}/chart/${id}?days=30`)
+                ]);
+                
+                if (!p.ok || !c.ok) throw new Error('Failed to fetch data');
+                
+                const pred = await p.json();
+                const chartData = await c.json();
+                
+                if (!pred.success || !chartData.success) throw new Error('API error');
+                
+                renderPred(pred.data, chartData.data);
+            } catch (e) {
+                console.error('Prediction error:', e);
+                document.getElementById('modalBody').innerHTML = '<div class="loading"><p style="color:#ef4444">Failed to load prediction</p></div>';
+            }
+        }
+
+        function renderPred(p, c) {
+            const sc = p.sentiment.toLowerCase().replace(' ', '-');
+            document.getElementById('modalBody').innerHTML = `
+                <div class="pred-grid">
+                    <div class="pred-card"><div class="pred-label">Current</div><div class="pred-value">${fmt(p.current_price)}</div></div>
+                    <div class="pred-card"><div class="pred-label">1 Day</div><div class="pred-value">${fmt(p.predictions['1_day'])}</div><span class="stat-change ${p.price_changes['1_day']>=0?'positive':'negative'}">${pct(p.price_changes['1_day'])}</span></div>
+                    <div class="pred-card"><div class="pred-label">7 Days</div><div class="pred-value">${fmt(p.predictions['7_day'])}</div><span class="stat-change ${p.price_changes['7_day']>=0?'positive':'negative'}">${pct(p.price_changes['7_day'])}</span></div>
+                    <div class="pred-card"><div class="pred-label">30 Days</div><div class="pred-value">${fmt(p.predictions['30_day'])}</div><span class="stat-change ${p.price_changes['30_day']>=0?'positive':'negative'}">${pct(p.price_changes['30_day'])}</span></div>
+                </div>
+                <div class="chart-wrap"><canvas id="chart"></canvas></div>
+                <div class="indicators">
+                    <div class="indicator"><div class="ind-label">RSI</div><div class="ind-value">${p.technical_indicators?.rsi||0}</div></div>
+                    <div class="indicator"><div class="ind-label">MACD</div><div class="ind-value">${p.technical_indicators?.macd||0}</div></div>
+                    <div class="indicator"><div class="ind-label">Signal</div><div class="ind-value">${p.technical_indicators?.signal||0}</div></div>
+                    <div class="indicator"><div class="ind-label">Volatility</div><div class="ind-value">${p.technical_indicators?.volatility||0}%</div></div>
+                </div>
+                <div class="sentiment">
+                    <h3>Market Sentiment</h3>
+                    <div class="sentiment-badge ${sc}">${p.sentiment}</div>
+                    <div class="conf-bar"><div class="conf-fill" style="width:${p.confidence}%"></div></div>
+                    <p style="color:#94a3b8;font-size:0.875rem">Confidence: ${p.confidence.toFixed(1)}%</p>
+                </div>
+                <div style="margin-top:2rem;padding:1.5rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:12px;font-size:0.875rem;color:#94a3b8">
+                    <strong style="color:#f59e0b">⚠️ Disclaimer:</strong> Not financial advice. DYOR.
+                </div>
+            `;
+            drawChart(c);
+        }
+
+        function drawChart(data) {
+            const ctx = document.getElementById('chart');
+            if (!ctx) return;
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Price',
+                        data: data.prices.map(p => ({x: p[0], y: p[1]})),
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99,102,241,0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {labels: {color: '#94a3b8'}},
+                        tooltip: {
+                            backgroundColor: 'rgba(15,23,42,0.95)',
+                            callbacks: {label: c => 'Price: ' + fmt(c.parsed.y)}
+                        }
+                    },
+                    scales: {
+                        x: {type: 'time', time: {unit: 'day'}, grid: {color: 'rgba(99,102,241,0.1)'}, ticks: {color: '#94a3b8'}},
+                        y: {grid: {color: 'rgba(99,102,241,0.1)'}, ticks: {color: '#94a3b8', callback: v => fmt(v)}}
+                    }
+                }
+            });
         }
 
         function closeModal() {
-            document.getElementById('predictionModal').classList.remove('active');
+            document.getElementById('modal').classList.remove('active');
+            if (chart) {chart.destroy(); chart = null;}
         }
 
-        // Close modal on outside click
-        document.getElementById('predictionModal').addEventListener('click', (e) => {
-            if (e.target.id === 'predictionModal') {
-                closeModal();
-            }
-        });
+        document.getElementById('modal').onclick = e => {if (e.target === e.currentTarget) closeModal();};
 
-        // Initialize
-        fetchMarketData();
-        setInterval(fetchMarketData, 60000); // Refresh every minute
+        // Check if running through Flask
+        if (window.location.protocol === 'file:') {
+            showAlert('Please open through Flask server: python app.py then visit http://localhost:5000', 'warning');
+        } else {
+            fetchGlobal();
+            fetchMarket();
+            setInterval(() => {fetchGlobal(); fetchMarket();}, 180000);
+        }
     </script>
 </body>
 </html>
