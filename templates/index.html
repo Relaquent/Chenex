@@ -368,15 +368,15 @@
             }
         }
 
-        async function predict(id, name) {
+        async function predict(symbol, name) {
             document.getElementById('modal').classList.add('active');
             document.getElementById('modalTitle').textContent = name;
             document.getElementById('modalBody').innerHTML = '<div class="loading"><div class="spinner"></div><p>Analyzing...</p></div>';
             
             try {
                 const [p, c] = await Promise.all([
-                    fetch(`${API}/predict/${id}`),
-                    fetch(`${API}/chart/${id}?days=30`)
+                    fetch(`${API}/predict/${symbol}`),
+                    fetch(`${API}/chart/${symbol}?days=30`)
                 ]);
                 
                 if (!p.ok || !c.ok) throw new Error('Failed to fetch data');
