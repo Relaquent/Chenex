@@ -4,3 +4,4 @@ flask-caching
 requests
 gunicorn
 redis
+numpy
