@@ -18,7 +18,7 @@ if os.environ.get("REDIS_URL"):
     cache = Cache(app, config={
         "CACHE_TYPE": "RedisCache",
         "CACHE_REDIS_URL": os.environ.get("REDIS_URL"),
-        "CACHE_DEFAULT_TIMEOUT": 180  # 3 minutes for faster updates
+        "CACHE_DEFAULT_TIMEOUT": 180
     })
     print("[INFO] RedisCache active 🚀")
 else:
@@ -29,7 +29,8 @@ else:
     print("[INFO] SimpleCache (RAM) active ⚙️")
 
 # === API Configuration ===
-COINGECKO_BASE = "https://api.coingecko.com/api/v3"
+# Using CoinGecko free public API - no authentication required
+COINGECKO_API = "https://api.coingecko.com/api/v3"
 HEADERS = {"User-Agent": "ChenexCryptoDashboard/2.0", "Accept": "application/json"}
 
 # === Advanced Rate Limiting with Token Bucket ===
@@ -61,9 +62,9 @@ class TokenBucket:
 
 # Create separate buckets for different endpoints
 rate_limiters = {
-    "markets": TokenBucket(capacity=5, refill_rate=0.5),  # 30 req/min
-    "coin_detail": TokenBucket(capacity=10, refill_rate=1),  # 60 req/min
-    "chart": TokenBucket(capacity=8, refill_rate=0.8),  # 48 req/min
+    "markets": TokenBucket(capacity=5, refill_rate=0.5),
+    "coin_detail": TokenBucket(capacity=10, refill_rate=1),
+    "chart": TokenBucket(capacity=8, refill_rate=0.8),
     "global": TokenBucket(capacity=5, refill_rate=0.5)
 }
 
@@ -83,7 +84,7 @@ def safe_get(url, params=None, retries=5, bucket="global"):
             r = requests.get(url, params=params, headers=HEADERS, timeout=15)
             
             if r.status_code == 429:
-                wait_time = min(2 ** attempt * 5, 60)  # Exponential backoff, max 60s
+                wait_time = min(2 ** attempt * 5, 60)
                 print(f"[429 RATE LIMIT] Attempt {attempt+1}/{retries} - waiting {wait_time}s")
                 time.sleep(wait_time)
                 continue
@@ -204,14 +205,14 @@ class AdvancedPredictor:
         # Weighted prediction factors
         trend_factor = (sma_7 - sma_30) / sma_30
         momentum_factor = (current - sma_90) / sma_90 if len(prices_arr) >= 90 else trend_factor
-        rsi_factor = (rsi - 50) / 50  # Normalize RSI
+        rsi_factor = (rsi - 50) / 50
         macd_factor = 1 if macd > signal else -1
-        volatility_factor = min(volatility / 10, 1)  # Cap at 1
+        volatility_factor = min(volatility / 10, 1)
         volume_factor = (vol_trend - 1) * 0.5
         
         # Position within Bollinger Bands
         bb_position = (current - lower_bb) / (upper_bb - lower_bb) if upper_bb != lower_bb else 0.5
-        bb_factor = (bb_position - 0.5) * 2  # -1 to 1
+        bb_factor = (bb_position - 0.5) * 2
         
         # Combined prediction with confidence weighting
         prediction_change = (
@@ -226,7 +227,7 @@ class AdvancedPredictor:
         # Time decay and volatility adjustment
         time_factor = days_ahead / 30
         prediction_change *= time_factor
-        prediction_change *= (1 + volatility_factor * 0.2)  # Increase uncertainty with volatility
+        prediction_change *= (1 + volatility_factor * 0.2)
         
         predicted_price = current * (1 + prediction_change)
         
@@ -255,7 +256,7 @@ def index():
 @app.route('/api/global')
 @cache.cached(timeout=300, query_string=True)
 def get_global_stats():
-    r = safe_get(f"{COINGECKO_BASE}/global", bucket="global")
+    r = safe_get(f"{COINGECKO_API}/global", bucket="global")
     if not r or r.status_code != 200:
         return jsonify({"success": False, "error": "Global data unavailable"}), 500
     
@@ -263,13 +264,13 @@ def get_global_stats():
     return jsonify({
         "success": True,
         "data": {
-            "total_market_cap": data["total_market_cap"]["usd"],
-            "total_volume": data["total_volume"]["usd"],
-            "btc_dominance": data["market_cap_percentage"]["btc"],
-            "eth_dominance": data["market_cap_percentage"].get("eth", 0),
-            "active_cryptocurrencies": data["active_cryptocurrencies"],
-            "markets": data["markets"],
-            "market_cap_change_24h": data["market_cap_change_percentage_24h_usd"]
+            "total_market_cap": data.get("total_market_cap", {}).get("usd", 0),
+            "total_volume": data.get("total_volume", {}).get("usd", 0),
+            "btc_dominance": data.get("market_cap_percentage", {}).get("btc", 0),
+            "eth_dominance": data.get("market_cap_percentage", {}).get("eth", 0),
+            "active_cryptocurrencies": data.get("active_cryptocurrencies", 0),
+            "markets": data.get("markets", 0),
+            "market_cap_change_24h": data.get("market_cap_change_percentage_24h_usd", 0)
         }
     })
 
@@ -280,7 +281,7 @@ def get_prices():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
     
-    r = safe_get(f"{COINGECKO_BASE}/coins/markets", {
+    r = safe_get(f"{COINGECKO_API}/coins/markets", {
         "vs_currency": "usd",
         "order": "market_cap_desc",
         "per_page": min(per_page, 100),
@@ -290,35 +291,35 @@ def get_prices():
     }, bucket="markets")
     
     if not r or r.status_code != 200:
-        return jsonify({"success": False, "error": "CoinGecko unavailable"}), 500
+        return jsonify({"success": False, "error": "API unavailable"}), 500
 
     coins = r.json()
     data = []
     for c in coins:
         data.append({
-            "id": c["id"],
-            "symbol": c["symbol"].upper(),
-            "name": c["name"],
-            "image": c["image"],
-            "current_price": c["current_price"],
+            "id": c.get("id", ""),
+            "symbol": c.get("symbol", "").upper(),
+            "name": c.get("name", ""),
+            "image": c.get("image", ""),
+            "current_price": c.get("current_price", 0),
             "price_change_1h": c.get("price_change_percentage_1h_in_currency", 0),
             "price_change_24h": c.get("price_change_percentage_24h", 0),
             "price_change_7d": c.get("price_change_percentage_7d_in_currency", 0),
             "price_change_30d": c.get("price_change_percentage_30d_in_currency", 0),
-            "market_cap": c["market_cap"],
-            "market_cap_rank": c["market_cap_rank"],
-            "fully_diluted_valuation": c.get("fully_diluted_valuation"),
-            "total_volume": c["total_volume"],
-            "high_24h": c["high_24h"],
-            "low_24h": c["low_24h"],
-            "circulating_supply": c.get("circulating_supply"),
-            "total_supply": c.get("total_supply"),
-            "max_supply": c.get("max_supply"),
-            "ath": c["ath"],
-            "ath_change_percentage": c["ath_change_percentage"],
-            "ath_date": c["ath_date"],
-            "atl": c["atl"],
-            "atl_change_percentage": c["atl_change_percentage"],
+            "market_cap": c.get("market_cap", 0),
+            "market_cap_rank": c.get("market_cap_rank", 0),
+            "fully_diluted_valuation": c.get("fully_diluted_valuation", 0),
+            "total_volume": c.get("total_volume", 0),
+            "high_24h": c.get("high_24h", 0),
+            "low_24h": c.get("low_24h", 0),
+            "circulating_supply": c.get("circulating_supply", 0),
+            "total_supply": c.get("total_supply", 0),
+            "max_supply": c.get("max_supply", 0),
+            "ath": c.get("ath", 0),
+            "ath_change_percentage": c.get("ath_change_percentage", 0),
+            "ath_date": c.get("ath_date", ""),
+            "atl": c.get("atl", 0),
+            "atl_change_percentage": c.get("atl_change_percentage", 0),
             "sparkline": c.get("sparkline_in_7d", {}).get("price", [])
         })
     return jsonify({"success": True, "data": data})
@@ -327,7 +328,7 @@ def get_prices():
 @app.route('/api/coin/<coin_id>')
 @cache.cached(timeout=300, query_string=True)
 def get_coin_details(coin_id):
-    r = safe_get(f"{COINGECKO_BASE}/coins/{coin_id}", {
+    r = safe_get(f"{COINGECKO_API}/coins/{coin_id}", {
         "localization": False,
         "tickers": False,
         "community_data": True,
@@ -338,39 +339,39 @@ def get_coin_details(coin_id):
         return jsonify({"success": False, "error": "Coin data unavailable"}), 500
 
     d = r.json()
-    md = d["market_data"]
+    md = d.get("market_data", {})
 
     return jsonify({
         "success": True,
         "data": {
-            "id": d["id"],
-            "symbol": d["symbol"].upper(),
-            "name": d["name"],
-            "description": d["description"]["en"][:800] if d["description"]["en"] else "",
+            "id": d.get("id", coin_id),
+            "symbol": d.get("symbol", "").upper(),
+            "name": d.get("name", ""),
+            "description": d.get("description", {}).get("en", "")[:800],
             "categories": d.get("categories", []),
             "links": {
-                "homepage": d["links"]["homepage"][0] if d["links"]["homepage"] else "",
-                "blockchain_site": d["links"]["blockchain_site"][0] if d["links"]["blockchain_site"] else "",
-                "twitter": d["links"]["twitter_screen_name"],
-                "telegram": d["links"]["telegram_channel_identifier"]
+                "homepage": (d.get("links", {}).get("homepage", []) or [""])[0],
+                "blockchain_site": (d.get("links", {}).get("blockchain_site", []) or [""])[0],
+                "twitter": d.get("links", {}).get("twitter_screen_name", ""),
+                "telegram": d.get("links", {}).get("telegram_channel_identifier", "")
             },
-            "current_price": md["current_price"]["usd"],
-            "market_cap": md["market_cap"]["usd"],
-            "market_cap_rank": d["market_cap_rank"],
-            "volume": md["total_volume"]["usd"],
-            "high_24h": md["high_24h"]["usd"],
-            "low_24h": md["low_24h"]["usd"],
-            "price_change_24h": md["price_change_24h"],
-            "price_change_percentage_24h": md["price_change_percentage_24h"],
-            "ath": md["ath"]["usd"],
-            "ath_change_percentage": md["ath_change_percentage"]["usd"],
-            "ath_date": md["ath_date"]["usd"],
-            "atl": md["atl"]["usd"],
-            "atl_change_percentage": md["atl_change_percentage"]["usd"],
-            "atl_date": md["atl_date"]["usd"],
-            "circulating_supply": md.get("circulating_supply"),
-            "total_supply": md.get("total_supply"),
-            "max_supply": md.get("max_supply"),
+            "current_price": md.get("current_price", {}).get("usd", 0),
+            "market_cap": md.get("market_cap", {}).get("usd", 0),
+            "market_cap_rank": d.get("market_cap_rank", 0),
+            "volume": md.get("total_volume", {}).get("usd", 0),
+            "high_24h": md.get("high_24h", {}).get("usd", 0),
+            "low_24h": md.get("low_24h", {}).get("usd", 0),
+            "price_change_24h": md.get("price_change_24h", 0),
+            "price_change_percentage_24h": md.get("price_change_percentage_24h", 0),
+            "ath": md.get("ath", {}).get("usd", 0),
+            "ath_change_percentage": md.get("ath_change_percentage", {}).get("usd", 0),
+            "ath_date": md.get("ath_date", {}).get("usd", ""),
+            "atl": md.get("atl", {}).get("usd", 0),
+            "atl_change_percentage": md.get("atl_change_percentage", {}).get("usd", 0),
+            "atl_date": md.get("atl_date", {}).get("usd", ""),
+            "circulating_supply": md.get("circulating_supply", 0),
+            "total_supply": md.get("total_supply", 0),
+            "max_supply": md.get("max_supply", 0),
             "community_data": d.get("community_data", {}),
             "developer_data": d.get("developer_data", {})
         }
@@ -381,7 +382,7 @@ def get_coin_details(coin_id):
 @cache.cached(timeout=180, query_string=True)
 def predict_price(coin_id):
     # Get 90 days of data for better prediction
-    r = safe_get(f"{COINGECKO_BASE}/coins/{coin_id}/market_chart", {
+    r = safe_get(f"{COINGECKO_API}/coins/{coin_id}/market_chart", {
         "vs_currency": "usd",
         "days": 90
     }, bucket="chart")
@@ -390,8 +391,8 @@ def predict_price(coin_id):
         return jsonify({"success": False, "error": "Prediction data unavailable"}), 500
 
     chart_data = r.json()
-    prices = [x[1] for x in chart_data["prices"]]
-    volumes = [x[1] for x in chart_data["total_volumes"]]
+    prices = [x[1] for x in chart_data.get("prices", [])]
+    volumes = [x[1] for x in chart_data.get("total_volumes", [])]
     
     if not prices or len(prices) < 30:
         return jsonify({"success": False, "error": "Insufficient data"}), 500
@@ -456,7 +457,7 @@ def predict_price(coin_id):
 def chart(coin_id):
     days = request.args.get("days", 30, type=int)
     
-    r = safe_get(f"{COINGECKO_BASE}/coins/{coin_id}/market_chart", {
+    r = safe_get(f"{COINGECKO_API}/coins/{coin_id}/market_chart", {
         "vs_currency": "usd",
         "days": min(days, 365)
     }, bucket="chart")
@@ -468,9 +469,9 @@ def chart(coin_id):
     return jsonify({
         "success": True,
         "data": {
-            "prices": j["prices"],
-            "market_caps": j["market_caps"],
-            "volumes": j["total_volumes"]
+            "prices": j.get("prices", []),
+            "market_caps": j.get("market_caps", []),
+            "volumes": j.get("total_volumes", [])
         }
     })
 
