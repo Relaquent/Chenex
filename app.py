@@ -176,7 +176,7 @@ class AdvancedPredictor:
     def predict_price(prices, volumes, days_ahead):
         """Advanced multi-factor prediction"""
         if len(prices) < 30:
-            return prices[-1]
+            return prices[-1], 50, {"rsi": 50, "macd": 0, "signal": 0, "volatility": 0, "trend_slope": 0, "bb_position": 50}
         
         prices_arr = np.array(prices)
         current = prices_arr[-1]
@@ -245,22 +245,6 @@ class AdvancedPredictor:
             "trend_slope": round(trend_slope, 6),
             "bb_position": round(bb_position * 100, 2)
         }
-
-# === Warm-up Cache ===
-@app.before_first_request
-def warm_up():
-    try:
-        print("[INIT] Warming up cache...")
-        safe_get(f"{COINGECKO_BASE}/coins/markets", {
-            "vs_currency": "usd",
-            "order": "market_cap_desc",
-            "per_page": 50,
-            "page": 1,
-            "sparkline": False
-        }, bucket="markets")
-        print("[INIT] Cache warmed ✅")
-    except Exception as e:
-        print(f"[WARN] Warm-up error: {e}")
 
 # === ROOT ===
 @app.route('/')
@@ -494,4 +478,11 @@ def chart(coin_id):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"\n✅ Chenex Advanced Server v2.0 running on http://0.0.0.0:{port}")
+    print(f"📊 Dashboard available at http://localhost:{port}")
+    print(f"🔗 API endpoints:")
+    print(f"   - GET /api/global")
+    print(f"   - GET /api/prices")
+    print(f"   - GET /api/predict/<coin_id>")
+    print(f"   - GET /api/chart/<coin_id>")
+    print(f"\n🚀 Server starting...\n")
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
